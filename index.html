@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piksel Avatar Tasarım</title>
+    <style>
+        body { text-align: center; font-family: sans-serif; padding: 20px; background: #fff; }
+        canvas { border: 2px solid black; cursor: crosshair; image-rendering: pixelated; width: 320px; height: 320px; }
+        .panel { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        #nickname { padding: 10px; width: 200px; }
+        #gonderBtn { padding: 10px 25px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .footer { margin-top: 30px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+    <h3>Piksel Avatarını Tasarla</h3>
+    <canvas id="cizim_tahtasi" width="320" height="320"></canvas>
+    
+    <div class="panel">
+        <input type="color" id="renkpaleti" value="#000000">
+        <input type="text" id="nickname" placeholder="Nickname..." maxlength="15">
+        <button id="gonderBtn">Gönder</button>
+    </div>
+
+    <div class="footer">
+        Bu uygulama sadece piksel sanatı paylaşımı içindir. Nickname'iniz dışında hiçbir kişisel veriniz saklanmaz.
+    </div>
+
+    <script>
+        const canvas = document.getElementById("cizim_tahtasi");
+        const ctx = canvas.getContext("2d");
+        const renkPaleti = document.getElementById("renkpaleti");
+        const gonderBtn = document.getElementById("gonderBtn");
+        
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,320,320);
+        ctx.strokeStyle = "#eee";
+        for(let i=0; i<=320; i+=10) { ctx.moveTo(i,0); ctx.lineTo(i,320); ctx.moveTo(0,i); ctx.lineTo(320,i); }
+        ctx.stroke();
+
+        let cizimYapiliyor = false;
+        function boya(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            ctx.fillStyle = renkPaleti.value;
+            ctx.fillRect(Math.floor(x/10)*10, Math.floor(y/10)*10, 10, 10);
+        }
+        canvas.addEventListener("mousedown", ()=>cizimYapiliyor=true);
+        canvas.addEventListener("mousemove", (e)=>{if(cizimYapiliyor) boya(e);});
+        window.addEventListener("mouseup", ()=>cizimYapiliyor=false);
+        canvas.addEventListener("touchstart", (e)=>{cizimYapiliyor=true; boya(e);});
+        canvas.addEventListener("touchmove", (e)=>{if(cizimYapiliyor) boya(e);});
+
+        gonderBtn.addEventListener("click", async () => {
+            const nick = document.getElementById("nickname").value;
+            if(!nick) return alert("Lütfen bir nickname gir!");
+
+            const sonGonderim = localStorage.getItem('sonGonderimTarihi');
+            const simdi = new Date().getTime();
+            if(sonGonderim && (simdi - sonGonderim < 7 * 24 * 60 * 60 * 1000)) {
+                return alert("Bu cihazdan haftalık limit doldu! Bir sonraki hafta tekrar dene.");
+            }
+
+            gonderBtn.innerText = "Gönderiliyor...";
+            
+            const veri = {
+                nickname: nick,
+                avatar_data: canvas.toDataURL("image/png")
+            };
+
+            const response = await fetch("https://formspree.io/f/xgojkblj", {
+                method: "POST",
+                body: JSON.stringify(veri),
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                localStorage.setItem('sonGonderimTarihi', simdi);
+                alert("Başarıyla gönderildi! Tasarımın vitrin için kürasyon sürecinde.");
+                gonderBtn.innerText = "Gönder";
+                document.getElementById("nickname").value = "";
+            } else {
+                alert("Hata oluştu! Kontenjan dolmuş olabilir.");
+                gonderBtn.innerText = "Gönder";
+            }
+        });
+    </script>
+</body>
+</html>
